@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 from fpdf import FPDF
 import sys
 import os
+import matplotlib
+
+matplotlib.use('Agg')
 
 # Function to transcribe audio using Google Web Speech API
 def transcribe_speech(audio_file):
