@@ -150,7 +150,7 @@ def ask():
 def upload():
     return upload_pdf()
 
-@app.route('/extract_keywords', methods=['POST'])
+@app.route('/extract_keywords_manual', methods=['POST'])
 def extract_keywords_endpoint():
     """API endpoint to extract keywords from provided text and documents."""
     data = request.get_json()
@@ -164,7 +164,7 @@ def extract_keywords_endpoint():
 
     return jsonify(keywords), 200
 
-@app.route('/extract_keywords_keybert', methods=['POST'])
+@app.route('/extract_keywords', methods=['POST'])
 def extract_keywords_keybert():
     """API endpoint to extract keywords from provided text using KeyBERT."""
     data = request.get_json()
