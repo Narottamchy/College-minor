@@ -9,6 +9,8 @@ from supabase_storage import upload_to_supabase  # Import the function from supa
 from newapp import ask_question, upload_pdf
 from keyword_extractor import extract_keywords  # Import the function from keyword_extractor.py
 from keybert import KeyBERT
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 kw_model = KeyBERT(model='all-MiniLM-L6-v2')
 
@@ -181,6 +183,68 @@ def extract_keywords_keybert():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Function to extract keywords using KeyBERT
+def extract_keywords_from_text(text):
+    keywords = kw_model.extract_keywords(text, keyphrase_ngram_range=(1, 1), stop_words=None, top_n=50)
+    return [kw[0] for kw in keywords]  # Return only the keyword, not the score
+
+# Function to calculate similarity between documents using cosine similarity
+def calculate_similarity(doc_keywords):
+    # Create a TF-IDF vectorizer for the keyword lists
+    tfidf_vectorizer = TfidfVectorizer()
+    
+    # Combine all the keywords into documents
+    tfidf_matrix = tfidf_vectorizer.fit_transform(doc_keywords)
+    
+    # Calculate cosine similarity between the documents
+    cosine_sim = cosine_similarity(tfidf_matrix)
+    return cosine_sim
+
+# Function to generate textual descriptions of the similarity results
+def generate_similarity_description(similarity_matrix, docs):
+    n_docs = len(docs)
+    descriptions = []
+    
+    for i in range(n_docs):
+        for j in range(i + 1, n_docs):
+            similarity_percentage = round(similarity_matrix[i][j] * 100, 2)
+            descriptions.append(f"Document {i+1} and Document {j+1} have a similarity of {similarity_percentage}%.")
+
+    return descriptions
+
+@app.route('/compare_documents', methods=['POST'])
+def compare_documents():
+    """API to compare content similarity between two or more documents."""
+    data = request.get_json()
+
+    if not data or 'docs' not in data:
+        return jsonify({'error': 'No valid documents provided'}), 400
+
+    docs = data['docs']
+
+    if len(docs) < 2:
+        return jsonify({'error': 'At least two documents are required to compare'}), 400
+
+    try:
+        # Step 1: Extract keywords for each document
+        doc_keywords = [extract_keywords_from_text(doc) for doc in docs]
+
+        # Step 2: Calculate similarity between the documents
+        similarity_matrix = calculate_similarity([" ".join(kw) for kw in doc_keywords])
+
+        # Step 3: Generate textual descriptions of similarity
+        similarity_descriptions = generate_similarity_description(similarity_matrix, docs)
+
+        # Step 4: Prepare the response
+        return jsonify({
+            'similarity_matrix': similarity_matrix.tolist(),
+            'similarity_descriptions': similarity_descriptions
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False)
