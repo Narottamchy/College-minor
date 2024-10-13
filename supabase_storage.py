@@ -63,5 +63,5 @@ if __name__ == "__main__":
     # Upload to "reports" bucket
     upload_to_supabase(report_pdf_path, "reports")
 
-    # Upload to "final_reports" bucket
-    upload_to_supabase(final_report_pdf_path, "final_reports")
+    # Upload to "final_report" bucket
+    upload_to_supabase(final_report_pdf_path, "final_report")

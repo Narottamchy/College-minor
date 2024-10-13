@@ -2,6 +2,8 @@ import os
 from fpdf import FPDF
 from dotenv import load_dotenv
 import google.generativeai as genai  # Import for Google Generative AI
+from langchain.prompts import PromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Load environment variables from .env file
 load_dotenv()
@@ -32,19 +34,43 @@ def generate_gemini_report(report_text):
     if report_text is None:
         return "Error: No valid speech report content to process."
 
-    prompt = f"Here is a detailed speech analysis report:\n\n{report_text}\n\nPlease provide a brief overview, key insights, summary, conclusions, and necessary actions based on this report."
+    # Define the prompt template for generating the report
+    prompt_template = """
+    Here is a detailed speech analysis report:
+
+    {report_text}
+
+    Please provide:
+    1. A brief overview
+    2. Key insights
+    3. Summary
+    4. Conclusions
+    5. Necessary actions based on this report.
+    """
+
+    # Initialize the model
+    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+
+    # Define the prompt template
+    prompt = PromptTemplate(template=prompt_template, input_variables=["report_text"])
+
+    # Format the prompt using the input data
+    formatted_prompt = prompt.format(report_text=report_text)
+
+    # Prepare the input in the correct format (list of messages with roles)
+    input_messages = [{"role": "user", "content": formatted_prompt}]
 
     try:
-        # Using Google Generative AI (Gemini) to generate the response
-        response = genai.chat(messages=[{"content": prompt}], model="gemini-pro", temperature=0.3)
+        # Use the invoke() method instead of __call__ and pass input_messages
+        response = model.invoke(input_messages)
 
-        # Extract the content from the response
-        message_content = response["messages"][0]["content"]
+        # Extract the content from the response (accessing attributes instead of using indexing)
+        message_content = response.content  # Access the content attribute directly
         return message_content
     except Exception as e:
         print(f"Error with Google Generative AI: {e}")
         return "Error: Could not generate a report. Please check the API or try again later."
-
+           
 # Function to generate the final PDF report
 def generate_final_report(gemini_summary, pdf_filename="final_report.pdf"):
     if gemini_summary is None:
