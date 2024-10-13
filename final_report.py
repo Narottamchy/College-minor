@@ -1,15 +1,18 @@
 import os
-from openai import OpenAI
 from fpdf import FPDF
 from dotenv import load_dotenv
+import google.generativeai as genai  # Import for Google Generative AI
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Set up the OpenAI client using your API key from environment variable
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")  # Get API key from the .env file
-)
+# Set up Google Generative AI client using your API key from environment variable
+api_key = os.getenv("GOOGLE_API_KEY")  # Get Google API key from the .env file
+if not api_key:
+    raise ValueError("GOOGLE_API_KEY not found. Ensure it's correctly defined in the .env file.")
+
+# Configure Google Generative AI API
+genai.configure(api_key=api_key)
 
 # Function to read the contents of the speech_report.txt file
 def read_speech_report(file_path):
@@ -24,32 +27,28 @@ def read_speech_report(file_path):
         print(f"Error reading the file: {e}")
         return None
 
-# Function to get OpenAI GPT summary, conclusions, and insights based on the speech report
-def generate_openai_report(report_text):
+# Function to get Google Generative AI summary, conclusions, and insights based on the speech report
+def generate_gemini_report(report_text):
     if report_text is None:
         return "Error: No valid speech report content to process."
 
     prompt = f"Here is a detailed speech analysis report:\n\n{report_text}\n\nPlease provide a brief overview, key insights, summary, conclusions, and necessary actions based on this report."
 
     try:
-        # Using the new API call to generate chat completions
-        response = client.chat.completions.create(
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            model="gpt-4",
-        )
-        # Extract the content from the response correctly
-        message_content = response.choices[0].message.content
+        # Using Google Generative AI (Gemini) to generate the response
+        response = genai.chat(messages=[{"content": prompt}], model="gemini-pro", temperature=0.3)
+
+        # Extract the content from the response
+        message_content = response["messages"][0]["content"]
         return message_content
     except Exception as e:
-        print(f"Error with OpenAI API: {e}")
+        print(f"Error with Google Generative AI: {e}")
         return "Error: Could not generate a report. Please check the API or try again later."
 
 # Function to generate the final PDF report
-def generate_final_report(openai_summary, pdf_filename="final_report.pdf"):
-    if openai_summary is None:
-        openai_summary = "Error: No valid summary generated."
+def generate_final_report(gemini_summary, pdf_filename="final_report.pdf"):
+    if gemini_summary is None:
+        gemini_summary = "Error: No valid summary generated."
 
     try:
         # Create a new PDF for the final report
@@ -65,11 +64,11 @@ def generate_final_report(openai_summary, pdf_filename="final_report.pdf"):
         pdf.set_font("Arial", 'B', 16)
         pdf.ln(10)
 
-        # Summary section from OpenAI
+        # Summary section from Google Generative AI
         pdf.cell(200, 10, txt="Summary and Key Insights", ln=True, align="C")
         pdf.ln(10)
         pdf.set_font("Arial", '', 12)
-        pdf.multi_cell(0, 10, openai_summary)  # Insert the OpenAI generated summary
+        pdf.multi_cell(0, 10, gemini_summary)  # Insert the Google-generated summary
 
         # Add graphs to the report from the previous report
         pdf.add_page()
@@ -107,11 +106,11 @@ def final_report_generation():
             print("Error: Speech report content is missing or invalid.")
             return
 
-        # Step 2: Generate the OpenAI-generated content (summary, conclusions, etc.)
-        openai_summary = generate_openai_report(speech_report_text)
+        # Step 2: Generate the Google Generative AI (Gemini) content (summary, conclusions, etc.)
+        gemini_summary = generate_gemini_report(speech_report_text)
 
         # Step 3: Generate the final PDF report
-        generate_final_report(openai_summary)
+        generate_final_report(gemini_summary)
     except Exception as e:
         print(f"Error in final report generation process: {e}")
 
