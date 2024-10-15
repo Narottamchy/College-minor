@@ -170,14 +170,20 @@ def extract_keywords_endpoint():
 def extract_keywords_keybert():
     """API endpoint to extract keywords from provided text using KeyBERT."""
     data = request.get_json()
+    
+    # Check if the text field is provided in the request
     if not data or 'text' not in data:
         return jsonify({'error': 'No valid text provided'}), 400
 
+    # Extract the document text
     doc = data['text']
+    
+    # Get the top_n value from the request, or use a default value of 10
+    top_n = data.get('keywords', 10)  # Default value is 50 if top_n is not provided
 
     try:
-        # Extract keywords using KeyBERT
-        keywords = kw_model.extract_keywords(doc, keyphrase_ngram_range=(1, 1), stop_words=None, top_n=50)
+        # Extract keywords using KeyBERT with the dynamic top_n
+        keywords = kw_model.extract_keywords(doc, keyphrase_ngram_range=(1, 1), stop_words=None, top_n=top_n)
 
         return jsonify({'keywords': keywords}), 200
 
@@ -209,7 +215,7 @@ def generate_similarity_description(similarity_matrix, docs):
     for i in range(n_docs):
         for j in range(i + 1, n_docs):
             similarity_percentage = round(similarity_matrix[i][j] * 100, 2)
-            descriptions.append(f"Document {i+1} and Document {j+1} have a similarity of {similarity_percentage}%.")
+            descriptions.append(f"Text {i+1} and Text {j+1} have a similarity of {similarity_percentage}%.")
 
     return descriptions
 
@@ -219,12 +225,12 @@ def compare_documents():
     data = request.get_json()
 
     if not data or 'docs' not in data:
-        return jsonify({'error': 'No valid documents provided'}), 400
+        return jsonify({'error': 'No valid texts are provided'}), 400
 
     docs = data['docs']
 
     if len(docs) < 2:
-        return jsonify({'error': 'At least two documents are required to compare'}), 400
+        return jsonify({'error': 'At least two text fields are required to compare'}), 400
 
     try:
         # Step 1: Extract keywords for each document
@@ -247,5 +253,5 @@ def compare_documents():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=True)
 
