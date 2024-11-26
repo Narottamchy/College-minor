@@ -6,138 +6,20 @@ from keyword_extractor import extract_keywords  # Import the function from keywo
 from keybert import KeyBERT
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from dotenv import load_dotenv
+import resend
 
 kw_model = KeyBERT(model='all-MiniLM-L6-v2')
 
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Define the path where uploaded audio files will be stored
-# UPLOAD_FOLDER = './uploads'
-# if not os.path.exists(UPLOAD_FOLDER):
-#     os.makedirs(UPLOAD_FOLDER)
-
-# # Define the folder for storing PDF reports
-# PDF_FOLDER = os.path.join('speech_analysis_output', 'pdf_reports')
-# if not os.path.exists(PDF_FOLDER):
-#     os.makedirs(PDF_FOLDER)
-
-# def reencode_audio(file_path):
-#     """Attempts to re-encode a potentially corrupted audio file to ensure it's in a valid format."""
-#     try:
-#         audio = AudioSegment.from_file(file_path)
-#         reencoded_path = file_path.replace(".wav", "_reencoded.wav")
-#         audio.export(reencoded_path, format="wav")
-#         return reencoded_path
-#     except Exception as e:
-#         print(f"Error re-encoding audio with pydub: {e}")
-#         return None
-
-# def fix_audio_with_ffmpeg(input_path):
-#     """Use ffmpeg to fix corrupted wav files by re-encoding them."""
-#     output_path = input_path.replace(".wav", "_ffmpeg_fixed.wav")
-#     try:
-#         # Re-encode with ffmpeg
-#         command = f"ffmpeg -i {input_path} -acodec pcm_s16le -ar 44100 {output_path} -y"
-#         subprocess.run(command, shell=True, check=True)
-#         return output_path
-#     except Exception as e:
-#         print(f"Error fixing audio with ffmpeg: {e}")
-#         return None
-
-# Code to handle the document upload
-# def load_documents():
-#     """Load documents from a JSON file."""
-#     with open('documents.json', 'r') as f:
-#         data = json.load(f)
-#     return data['documents']
-
-# # Load documents at startup
-# docs = load_documents()
-
 @app.route('/')
 def index():
     return "Welcome to the InQuiro AI💻🔥"
-
-# @app.route('/process_audio', methods=['POST'])
-# def process_audio():
-#     try:
-#         if not request.data:
-#             return jsonify({"error": "No binary audio data found in the request"}), 400
-
-#         audio_filename = 'uploaded_audio.wav'
-#         audio_path = os.path.join(UPLOAD_FOLDER, audio_filename)
-
-#         # Save the audio file to disk
-#         with open(audio_path, 'wb') as audio_file:
-#             audio_file.write(request.data)
-
-#         normalized_audio_path = os.path.normpath(audio_path)
-
-#         # Step 1: Try to process the audio file
-#         try:
-#             process_audio_file(normalized_audio_path)
-#             print("Audio processed successfully using main.py.")
-#         except Exception as e:
-#             print(f"Error processing audio with main.py: {e}")
-
-#             # Step 2: Try re-encoding with pydub if processing fails
-#             print("Attempting to re-encode the audio file with pydub...")
-#             reencoded_path = reencode_audio(normalized_audio_path)
-#             if reencoded_path:
-#                 try:
-#                     process_audio_file(reencoded_path)
-#                     print("Audio successfully re-encoded and processed with pydub.")
-#                 except Exception as e2:
-#                     print(f"Error processing re-encoded audio with main.py: {e2}")
-
-#                     # Step 3: Try fixing with ffmpeg if pydub fails
-#                     print("Attempting to fix the audio file with ffmpeg...")
-#                     ffmpeg_fixed_path = fix_audio_with_ffmpeg(normalized_audio_path)
-#                     if ffmpeg_fixed_path:
-#                         try:
-#                             process_audio_file(ffmpeg_fixed_path)
-#                             print("Audio successfully processed after fixing with ffmpeg.")
-#                         except Exception as e3:
-#                             print(f"Error processing ffmpeg-fixed audio with main.py: {e3}")
-#                             return jsonify({"error": "Error processing audio after all attempts", "details": str(e3)}), 500
-#                     else:
-#                         return jsonify({"error": "Failed to fix audio with ffmpeg"}), 500
-#             else:
-#                 return jsonify({"error": "Failed to re-encode audio with pydub"}), 500
-
-#         # Step 4: Generate the final report
-#         try:
-#             final_report_generation()
-#             print("Final report successfully generated.")
-#         except Exception as e:
-#             print(f"Error generating final report: {e}")
-#             return jsonify({"error": "Error generating final report", "details": str(e)}), 500
-
-#         # Step 5: Upload report and final report to Supabase
-#         try:
-#             # Upload reports to Supabase from the updated folder path
-#             report_pdf_path = os.path.join(PDF_FOLDER, 'report.pdf')
-#             final_report_pdf_path = os.path.join(PDF_FOLDER, 'final_report.pdf')
-
-#             report_pdf_url = upload_to_supabase(report_pdf_path, "reports")
-#             final_report_pdf_url = upload_to_supabase(final_report_pdf_path, "final_report")
-
-#             # Return the URLs in the response
-#             return jsonify({
-#                 "message": "Process completed successfully",
-#                 "report_pdf_url": report_pdf_url,
-#                 "final_report_pdf_url": final_report_pdf_url
-#             }), 200
-
-#         except Exception as e:
-#             print(f"Error uploading reports to Supabase: {e}")
-#             return jsonify({"error": "Error uploading reports", "details": str(e)}), 500
-
-#     except Exception as e:
-#         print(f"Unexpected error: {str(e)}")
-#         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -254,6 +136,255 @@ def compare_documents():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/contact', methods=['POST'])
+def contact():
+    try:
+        # Get the data from the incoming request (assume JSON)
+        data = request.get_json()
+
+        resend.api_key = os.getenv('RESEND_API_KEY')
+
+        # Validate the required fields
+        if not data or 'name' not in data or 'email' not in data or 'message' not in data:
+            return jsonify({'error': 'Name, email, and message are required'}), 400
+        
+        name = data['name']
+        email = data['email']
+        message = data['message']
+
+        html_template= f"""
+        <!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional //EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<!--[if gte mso 9]>
+<xml>
+  <o:OfficeDocumentSettings>
+    <o:AllowPNG/>
+    <o:PixelsPerInch>96</o:PixelsPerInch>
+  </o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="x-apple-disable-message-reformatting">
+  <!--[if !mso]><!--><meta http-equiv="X-UA-Compatible" content="IE=edge"><!--<![endif]-->
+  <title></title>
+  
+    <style type="text/css">
+      
+      @media only screen and (min-width: 620px) {{
+        .u-row {{
+          width: 600px !important;
+        }}
+
+        .u-row .u-col {{
+          vertical-align: top;
+        }}
+
+        
+            .u-row .u-col-100 {{
+              width: 600px !important;
+            }}
+          
+      }}
+
+      @media only screen and (max-width: 620px) {{
+        .u-row-container {{
+          max-width: 100% !important;
+          padding-left: 0px !important;
+          padding-right: 0px !important;
+        }}
+
+        .u-row {{
+          width: 100% !important;
+        }}
+
+        .u-row .u-col {{
+          display: block !important;
+          width: 100% !important;
+          min-width: 320px !important;
+          max-width: 100% !important;
+        }}
+
+        .u-row .u-col > div {{
+          margin: 0 auto;
+        }}
+
+
+}}
+    
+body{{margin:0;padding:0}}table,td,tr{{border-collapse:collapse;vertical-align:top}}p{{margin:0}}.ie-container table,.mso-container table{{table-layout:fixed}}*{{line-height:inherit}}a[x-apple-data-detectors=true]{{color:inherit!important;text-decoration:none!important}}
+
+
+table, td {{ color: #000000; }} @media (max-width: 480px) {{ #u_content_heading_1 .v-container-padding-padding {{ padding: 118px 10px 5px !important; }} #u_content_heading_1 .v-font-size {{ font-size: 45px !important; }} #u_content_heading_3 .v-font-size {{ font-size: 55px !important; }} #u_content_heading_2 .v-container-padding-padding {{ padding: 5px 10px 115px !important; }} #u_content_heading_2 .v-font-size {{ font-size: 55px !important; }} #u_content_text_1 .v-container-padding-padding {{ padding: 60px 15px !important; }} #u_content_text_1 .v-text-align {{ text-align: justify !important; }} }}
+    </style>
+  
+  
+
+<!--[if !mso]><!--><link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" rel="stylesheet" type="text/css"><link href="https://fonts.googleapis.com/css?family=Playfair+Display:400,700&display=swap" rel="stylesheet" type="text/css"><!--<![endif]-->
+
+</head>
+
+<body class="clean-body u_body" style="margin: 0;padding: 0;-webkit-text-size-adjust: 100%;background-color: #ecf0f1;color: #000000">
+  <!--[if IE]><div class="ie-container"><![endif]-->
+  <!--[if mso]><div class="mso-container"><![endif]-->
+  <table style="border-collapse: collapse;table-layout: fixed;border-spacing: 0;mso-table-lspace: 0pt;mso-table-rspace: 0pt;vertical-align: top;min-width: 320px;Margin: 0 auto;background-color: #ecf0f1;width:100%" cellpadding="0" cellspacing="0">
+  <tbody>
+  <tr style="vertical-align: top">
+    <td style="word-break: break-word;border-collapse: collapse !important;vertical-align: top">
+    <!--[if (mso)|(IE)]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="background-color: #ecf0f1;"><![endif]-->
+    
+  
+  
+    <!--[if gte mso 9]>
+      <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;min-width: 320px;max-width: 600px;">
+        <tr>
+          <td background="https://cdn.templates.unlayer.com/assets/1668754983570-header.png" valign="top" width="100%">
+      <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width: 600px;">
+        <v:fill type="frame" src="https://cdn.templates.unlayer.com/assets/1668754983570-header.png" /><v:textbox style="mso-fit-shape-to-text:true" inset="0,0,0,0">
+      <![endif]-->
+  
+<div class="u-row-container" style="padding: 0px;background-repeat: no-repeat;background-position: center top;background-color: #111828">
+  <div class="u-row" style="margin: 0 auto;min-width: 320px;max-width: 600px;overflow-wrap: break-word;word-wrap: break-word;word-break: break-word;background-color: #111828;">
+    <div style="border-collapse: collapse;display: table;width: 100%;height: 100%;background-color: #111828;">
+      <!--[if (mso)|(IE)]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding: 0px;background-repeat: no-repeat;background-position: center top;background-color: #111828;" align="center"><table cellpadding="0" cellspacing="0" border="0" style="width:600px;"><tr style="background-color: #111828;"><![endif]-->
+      
+<!--[if (mso)|(IE)]><td align="center" width="600" style="width: 600px;padding: 0px;border-top: 0px solid #111828;border-left: 0px solid #111828;border-right: 0px solid #111828;border-bottom: 0px solid #111828;" valign="top"><![endif]-->
+<div class="u-col u-col-100" style="max-width: 320px;min-width: 600px;display: table-cell;vertical-align: top;">
+  <div style="height: 100%;width: 100% !important;">
+  <!--[if (!mso)&(!IE)]><!--><div style="box-sizing: border-box; height: 100%; padding: 0px;border-top: 0px solid #111828;border-left: 0px solid #111828;border-right: 0px solid #111828;border-bottom: 0px solid #111828;"><!--<![endif]-->
+  
+<table id="u_content_heading_1" style="font-family:'Open Sans',sans-serif;" role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
+  <tbody>
+    <tr>
+      <td class="v-container-padding-padding" style="overflow-wrap:break-word;word-break:break-word;padding:105px 10px 5px;font-family:'Open Sans',sans-serif;" align="left">
+        
+  <!--[if mso]><table width="100%"><tr><td><![endif]-->
+    <h1 class="v-text-align v-font-size" style="margin: 0px; color: #efb168; line-height: 100%; text-align: center; word-wrap: break-word; font-family: 'Playfair Display',serif; font-size: 50px; font-weight: 400;"><strong>WELCOME</strong></h1>
+  <!--[if mso]></td></tr></table><![endif]-->
+
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<table id="u_content_heading_3" style="font-family:'Open Sans',sans-serif;" role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
+  <tbody>
+    <tr>
+      <td class="v-container-padding-padding" style="overflow-wrap:break-word;word-break:break-word;padding:0px 10px;font-family:'Open Sans',sans-serif;" align="left">
+        
+  <!--[if mso]><table width="100%"><tr><td><![endif]-->
+    <h1 class="v-text-align v-font-size" style="margin: 0px; color: #efb168; line-height: 100%; text-align: center; word-wrap: break-word; font-family: 'Playfair Display',serif; font-size: 65px; font-weight: 400;"><strong>To</strong></h1>
+  <!--[if mso]></td></tr></table><![endif]-->
+
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<table id="u_content_heading_2" style="font-family:'Open Sans',sans-serif;" role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
+  <tbody>
+    <tr>
+      <td class="v-container-padding-padding" style="overflow-wrap:break-word;word-break:break-word;padding:5px 10px 104px;font-family:'Open Sans',sans-serif;" align="left">
+        
+  <!--[if mso]><table width="100%"><tr><td><![endif]-->
+    <h1 class="v-text-align v-font-size" style="margin: 0px; color: #efb168; line-height: 100%; text-align: center; word-wrap: break-word; font-family: 'Playfair Display',serif; font-size: 65px; font-weight: 400;"><strong>InQuiro AI</strong></h1>
+  <!--[if mso]></td></tr></table><![endif]-->
+
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+  <!--[if (!mso)&(!IE)]><!--></div><!--<![endif]-->
+  </div>
+</div>
+<!--[if (mso)|(IE)]></td><![endif]-->
+      <!--[if (mso)|(IE)]></tr></table></td></tr></table><![endif]-->
+    </div>
+  </div>
+  </div>
+  
+    <!--[if gte mso 9]>
+      </v:textbox></v:rect>
+    </td>
+    </tr>
+    </table>
+    <![endif]-->
+    
+
+
+  
+  
+<div class="u-row-container" style="padding: 0px;background-color: #111828">
+  <div class="u-row" style="margin: 0 auto;min-width: 320px;max-width: 600px;overflow-wrap: break-word;word-wrap: break-word;word-break: break-word;background-color: #111828;">
+    <div style="border-collapse: collapse;display: table;width: 100%;height: 100%;background-color: #111828;">
+      <!--[if (mso)|(IE)]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding: 0px;background-color: #111828;" align="center"><table cellpadding="0" cellspacing="0" border="0" style="width:600px;"><tr style="background-color: #111828;"><![endif]-->
+      
+<!--[if (mso)|(IE)]><td align="center" width="600" style="background-color: #ffffff;width: 600px;padding: 0px;border-top: 0px solid #111828;border-left: 0px solid #111828;border-right: 0px solid #111828;border-bottom: 0px solid #111828;border-radius: 0px;-webkit-border-radius: 0px; -moz-border-radius: 0px;" valign="top"><![endif]-->
+<div class="u-col u-col-100" style="max-width: 320px;min-width: 600px;display: table-cell;vertical-align: top;">
+  <div style="background-color: #ffffff;height: 100%;width: 100% !important;border-radius: 0px;-webkit-border-radius: 0px; -moz-border-radius: 0px;">
+  <!--[if (!mso)&(!IE)]><!--><div style="box-sizing: border-box; height: 100%; padding: 0px;border-top: 0px solid #111828;border-left: 0px solid #111828;border-right: 0px solid #111828;border-bottom: 0px solid #111828;border-radius: 0px;-webkit-border-radius: 0px; -moz-border-radius: 0px;"><!--<![endif]-->
+  
+<table id="u_content_text_1" style="font-family:'Open Sans',sans-serif;" role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
+  <tbody>
+    <tr>
+      <td class="v-container-padding-padding" style="overflow-wrap:break-word;word-break:break-word;padding:60px 30px;font-family:'Open Sans',sans-serif;" align="left">
+        
+  <div class="v-text-align v-font-size" style="font-size: 14px; line-height: 180%; text-align: justify; word-wrap: break-word;">
+    <p style="font-size: 14px; line-height: 180%;"><strong>Hello from {name} email {email}</strong>,</p>
+<p style="font-size: 14px; line-height: 180%;"> </p>
+<p style="font-size: 14px; line-height: 180%;">{message}</p>
+<p style="font-size: 14px; line-height: 180%;"> </p>
+<p style="font-size: 14px; line-height: 180%;">Thanks.</p>
+<p style="font-size: 14px; line-height: 180%;">have a good day.</p>
+  </div>
+
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+  <!--[if (!mso)&(!IE)]><!--></div><!--<![endif]-->
+  </div>
+</div>
+<!--[if (mso)|(IE)]></td><![endif]-->
+      <!--[if (mso)|(IE)]></tr></table></td></tr></table><![endif]-->
+    </div>
+  </div>
+  </div>
+  
+
+
+    <!--[if (mso)|(IE)]></td></tr></table><![endif]-->
+    </td>
+  </tr>
+  </tbody>
+  </table>
+  <!--[if mso]></div><![endif]-->
+  <!--[if IE]></div><![endif]-->
+</body>
+
+</html>
+        """
+
+        # Send email using Resend API
+        response = resend.Emails.send({
+            "from": "onboarding@resend.dev",  # Sender's email
+            "to": "info.in.naturaleza@gmail.com",    # Recipient's email (where you want to receive the message)
+            "subject": f"Contact Message from {name}",
+            "html": html_template
+        })
+
+        # Return a success response
+        if response:
+            return jsonify({'message': 'Email sent successfully!'}), 200
+        else:
+            return jsonify({'error': 'Failed to send email'}), 500
+
+    except Exception as e:
+        # Handle errors
+        return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=True)
