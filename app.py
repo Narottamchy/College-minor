@@ -1,11 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-from pydub import AudioSegment
-from speech_report import process_audio_file
-from final_report import final_report_generation
-import subprocess
-from supabase_storage import upload_to_supabase  # Import the function from supabase_storage.py
 from newapp import ask_question, upload_pdf
 from keyword_extractor import extract_keywords  # Import the function from keyword_extractor.py
 from keybert import KeyBERT
@@ -63,7 +58,7 @@ CORS(app)  # Enable CORS for all routes
 
 @app.route('/')
 def index():
-    return "Welcome to the Speech Analysis API!"
+    return "Welcome to the InQuiro AI💻🔥"
 
 # @app.route('/process_audio', methods=['POST'])
 # def process_audio():
@@ -146,11 +141,19 @@ def index():
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    return ask_question()
+    try:
+        result = ask_question()
+        return result
+    except Exception as e:
+        return jsonify({"error": "Error in ask endpoint", "details": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    return upload_pdf()
+    try:
+        result = upload_pdf()
+        return result
+    except Exception as e:
+        return jsonify({"error": "Error in upload endpoint", "details": str(e)}), 500
 
 @app.route('/extract_keywords_manual', methods=['POST'])
 def extract_keywords_endpoint():
